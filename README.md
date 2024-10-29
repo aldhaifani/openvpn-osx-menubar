@@ -46,7 +46,7 @@ The script supports the following features:
 
 [![Bootstrap][Python.org]][Python-url]
 
-- `rumps` - A library for creating macOS menu bar using Python
+- `rumps` - A library makes developing apps for the macOS menu bar easy using Python.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
