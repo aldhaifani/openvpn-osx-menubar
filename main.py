@@ -11,13 +11,10 @@ class OVPNMenuBarApp(rumps.App):
    A menu bar application to run OpenVPN and display the assigned IP address.
    """
 
-    def __int__(self):
-        """
-        Initialize the OVPNMenuBarApp with a default title and no IP address or VPN process.
-        """
-        super(OVPNMenuBarApp, self).__init__("OVPN IP")
-        self.ip_address = None
+    def __init__(self, name, title=None, icon=None, template=None, menu=None, quit_button='Quit'):
+        super().__init__(name, title, icon, template, menu, quit_button)
         self.vpn_process = None
+        self.ip_address = None
 
     def run_openvpn(self, ovpn_file):
         """
@@ -34,14 +31,14 @@ class OVPNMenuBarApp(rumps.App):
         cmd = ['sudo', 'openvpn', ovpn_file]
 
         # Start the process
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        self.vpn_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
         ip_address = None
 
         try:
             # Read the output line by line
             while True:
-                line = process.stdout.readline()
+                line = self.vpn_process.stdout.readline()
                 if not line:
                     break
 
@@ -62,9 +59,8 @@ class OVPNMenuBarApp(rumps.App):
         except KeyboardInterrupt:
             # Handle Ctrl+C gracefully
             print("\nStopping VPN connection...")
-            process.terminate()
-            process.wait()
-            return ip_address
+            self.quit_app(None)
+
 
     def update_title(self, ip):
         """
@@ -75,6 +71,11 @@ class OVPNMenuBarApp(rumps.App):
         """
         self.title = f"{ip}"
 
+    @rumps.clicked("Quit")
+    def quit_app(self, _):
+        if self.vpn_process:
+            self.vpn_process.kill()
+        self.vpn_process = None
 
 # Test the function
 if __name__ == "__main__":
