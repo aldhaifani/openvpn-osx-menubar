@@ -4,6 +4,7 @@ import re
 import sys
 import rumps
 import threading
+from time import sleep
 
 
 class OVPNMenuBarApp(rumps.App):
@@ -11,8 +12,11 @@ class OVPNMenuBarApp(rumps.App):
    A menu bar application to run OpenVPN and display the assigned IP address.
    """
 
-    def __init__(self, name, title=None, icon=None, template=None, menu=None, quit_button='Quit'):
-        super().__init__(name, title, icon, template, menu, quit_button)
+    def __init__(self, name, title=None, icon=None, template=None, menu=None, quit_button=None):
+        super().__init__(name, title, icon, template, menu, quit_button=None)
+        self.menu = [
+            rumps.MenuItem("Disconnect", callback=self.quit_application)
+        ]
         self.vpn_process = None
         self.ip_address = None
 
@@ -59,7 +63,7 @@ class OVPNMenuBarApp(rumps.App):
         except KeyboardInterrupt:
             # Handle Ctrl+C gracefully
             print("\nStopping VPN connection...")
-            self.quit_app(None)
+            self.quit_application()
 
 
     def update_title(self, ip):
@@ -71,11 +75,37 @@ class OVPNMenuBarApp(rumps.App):
         """
         self.title = f"{ip}"
 
-    @rumps.clicked("Quit")
-    def quit_app(self, _):
-        if self.vpn_process:
-            self.vpn_process.kill()
-        self.vpn_process = None
+    def quit_application(self):
+        """
+        Quit the application and stop the OpenVPN process.
+        """
+        print("Quitting application...")
+        sys.stdout.flush()
+
+        try:
+            if self.vpn_process:
+                sys.stdout.flush()
+
+                # Stop the OpenVPN process
+                self.vpn_process.kill()
+                self.vpn_process.wait()
+
+                # Stop all OpenVPN processes, if any
+                subprocess.run(['sudo', 'killall', 'openvpn'], check=False)
+
+                print("VPN connection stopped")
+                sys.stdout.flush()
+
+            sleep(1)  # Short delay to let OpenVPN messages appear
+            print("Bye!")  # Add the goodbye message
+            sys.stdout.flush()
+            sleep(1)  # Give time for the bye message to appear
+
+        except Exception as e:
+            print(f"Error during shutdown: {e}")
+            sys.stdout.flush()
+
+        rumps.quit_application()
 
 # Test the function
 if __name__ == "__main__":
