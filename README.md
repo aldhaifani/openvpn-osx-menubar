@@ -1,6 +1,9 @@
-<h3 align="center">OpenVpn OSX MenuBar</h3>
+<h3 align="center">OpenVPN OSX MenuBar</h3>
 <p align="center">
-    A simple Python script that displays your OpenVpn IP in the macOS menu bar.
+    A lightweight menubar app that shows your OpenVPN connection status and IP address on macOS
+    <br />
+    <img src="https://img.shields.io/badge/python-3.6+-blue">
+    <img src="https://img.shields.io/badge/platform-macOS-lightgrey">
 </p>
 
 
@@ -10,8 +13,9 @@
   <summary>Table of Contents</summary>
   <ol>
     <li>
-      <a href="#about-the-script">About the Script</a>
+      <a href="#about-the-project">About The Project</a>
       <ul>
+        <li><a href="#features">Features</a></li>
         <li><a href="#built-with">Built With</a></li>
       </ul>
     </li>
@@ -23,6 +27,7 @@
       </ul>
     </li>
     <li><a href="#usage">Usage</a></li>
+    <li><a href="#logging">Logging</a></li>
     <li><a href="#license">License</a></li>
     <li><a href="#contact">Contact</a></li>
   </ol>
@@ -30,25 +35,25 @@
 
 
 
-<!-- ABOUT THE PROJECT -->
+## About The Project
 
-## About the Project
+A Python utility that integrates OpenVPN into your macOS menu bar, providing easy access to your VPN connection status and IP address.
 
-This Python script uses the openvpn command to connect to a VPN and extracts the assigned IP address from the output. It then displays the IP address in the macOS menu bar using the rumps library.
-The script supports the following features:
-- Connects to the VPN using a provided configuration file (.ovpn)
-- Continuously monitors the VPN connection and updates the menu bar with the current IP address
-- Provides a "Quit" option in the menu to terminate the VPN connection
+### Features
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+- VPN IP display in menu bar
+- Quick disconnect functionality
+- Detailed logging system
+- Custom log file support
 
 ### Built With
 
-[![Bootstrap][Python.org]][Python-url]
-
-- `rumps` - A library makes developing apps for the macOS menu bar easy using Python.
+[![Python][Python.org]][Python-url]
+- `rumps` - macOS menu bar integration
+- `openvpn` - VPN client
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 
 
 
@@ -58,46 +63,57 @@ The script supports the following features:
 
 ### Prerequisites
 
-This script is built with Python and requires a Python interpreter to run. You can install Python from the official website: [Python.org](https://python.org)
+- Python 3.6+
+- OpenVPN: `brew install openvpn`
 
+### Installation
 
-This script also requires that you have openvpn installed in your system and can be accessed from the terminal. You can install openvpn using the following command:
-```sh
-brew install openvpn
-```
-
-### Installation & Usage
-
-To install this script you 
-1. Navigate to the directory where you want to install the script, to go to the home directory, run the following command:
-   ```sh
-   cd ~
-   ```
-2. Clone the repo
+1. Clone and enter directory:
    ```sh
    git clone https://github.com/aldhaifani/openvpn-osx-menubar.git
    cd openvpn-osx-menubar
    ```
-3. Install required packages
+
+2. Install dependencies:
    ```sh
    pip install -r requirements.txt
    ```
-4. Finally, run the script
-   ```sh
-   python main.py file.ovpn
-   ```
 
-*This should be enough for the script to work. However, you can setup an alias to run the script from anywhere in the terminal. To do this, add the following line to your `.bashrc` or `.zshrc` file:
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Usage
+
+Basic connection:
 ```sh
-# openvpn-osx-menubar alias
-alias vpn="python ~/openvpn-osx-menubar/main.py"
+sudo python main.py config.ovpn
 ```
 
-After adding the alias, you can run the script from anywhere in the terminal by running the following command:
+With custom log file:
 ```sh
-vpn file.ovpn
+sudo python main.py config.ovpn --log-file ~/custom/path/vpn.log
 ```
 
+Optional: Add to `.zshrc`:
+```sh
+alias vpn="sudo python ~/openvpn-osx-menubar/main.py"
+```
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Logging
+
+The application maintains detailed logs of all operations. By default, logs are written to `/tmp/ovpn_debug.log`, but you can specify a custom location using the `--log-file` argument.
+
+Monitor logs in real-time:
+```sh
+tail -f /tmp/ovpn_debug.log
+```
+
+Logs include:
+- Connection events
+- IP address assignments
+- Error messages
+- Application start/stop events
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
