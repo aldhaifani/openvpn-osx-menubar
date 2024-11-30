@@ -22,8 +22,7 @@ class OVPNMenuBarApp(rumps.App):
        app = OVPNMenuBarApp("OVPN IP", log_file="/path/to/custom.log")
    """
 
-    def __init__(self, name, title=None, icon=None, template=None, menu=None, quit_button=None,
-                 log_file='/tmp/ovpn_debug.log'):
+    def __init__(self, name, title=None, icon=None, template=None, menu=None, quit_button=None, log_file='/tmp/ovpn_debug.log', logging_enabled=True):
         """
         Initialize the OVPNMenuBarApp with the given parameters.
         """
@@ -33,31 +32,41 @@ class OVPNMenuBarApp(rumps.App):
         ]
         self.vpn_process = None
         self.ip_address = None
+        self.logging_enabled = logging_enabled
 
-        # Try to open log file with error handling
+        # Only set up logging if enabled
         self.log_path = log_file
-        try:
-            self.log_file = open(self.log_path, 'a')
-            self._log(f"Application started (logging to {self.log_path})")
-        except PermissionError:
-            print(f"Error: Permission denied when creating log file at {self.log_path}")
-            print("Please ensure you have write permissions to the directory")
-            print("Try running the application with sudo: sudo python main.py")
-            sys.exit(1)
-        except IOError as e:
-            print(f"Error: Could not create/open log file at {self.log_path}")
-            print(f"Details: {e}")
-            print("If this is a permissions issue, try running with sudo: sudo python main.py")
-            sys.exit(1)
+        self.log_file = None
+
+        if self.logging_enabled:
+            try:
+                self.log_file = open(self.log_path, 'a')
+                self._log(f"Application started (logging to {self.log_path})")
+            except PermissionError:
+                print(f"Error: Permission denied when creating log file at {self.log_path}")
+                print("Please ensure you have write permissions to the directory")
+                print("Try running the application with sudo: sudo python main.py")
+                sys.exit(1)
+            except IOError as e:
+                print(f"Error: Could not create/open log file at {self.log_path}")
+                print(f"Details: {e}")
+                print("If this is a permissions issue, try running with sudo: sudo python main.py")
+                sys.exit(1)
 
     def _log(self, message, source="APP"):
         """
         Log the given message to the log file with a timestamp and source.
-        Logs are in the format: "YYYY-MM-DD HH:MM:SS (SOURCE) - MESSAGE"
+        Logs are in the format: "YYYY-MM-DD HH:MM:SS (SOURCE) - MESSAGE
+        Args:
+            message (str): The message to log.
+            source (str): The source of the log message (default: APP).
+        Returns:
+            None
         """
-        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.log_file.write(f"{timestamp} ({source}) - {message}\n")
-        self.log_file.flush()
+        if self.logging_enabled and self.log_file:
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self.log_file.write(f"{timestamp} ({source}) - {message}\n")
+            self.log_file.flush()
 
     def run_openvpn(self, ovpn_file):
         """
@@ -160,7 +169,8 @@ class OVPNMenuBarApp(rumps.App):
         except Exception as e:
             self._log(f"Error during shutdown: {e}")
         finally:
-            self.log_file.close()
+            if self.logging_enabled and self.log_file:
+                self.log_file.close()
             sleep(1)  # Short delay to let OpenVPN messages appear
             print("Bye!")  # Add the goodbye message
             sys.stdout.flush()
@@ -204,7 +214,7 @@ and disconnect when needed.
 Features:
 - Displays VPN IP address in the menu bar
 - Automatically detects and displays assigned IP address
-- Logs operations with timestamps
+- Logs operations with timestamps (can be disabled)
 - Gracefully handles VPN disconnection
 - Menu bar integration with disconnect option
 
@@ -215,6 +225,7 @@ Note: This application requires sudo privileges to run OpenVPN correctly.
 Examples:
     sudo python main.py config.ovpn                      # Use default log location
     sudo python main.py config.ovpn --log-file ~/vpn.log # Specify custom log file
+    sudo python main.py config.ovpn --no-logging         # Disable logging completely
 
 Log files can be monitored in real-time using:
     tail -f /tmp/ovpn_debug.log  (or your custom log path)
@@ -231,9 +242,15 @@ Log files can be monitored in real-time using:
         help='Path to the log file for debugging and monitoring (default: /tmp/ovpn_debug.log)'
     )
 
+    parser.add_argument(
+        '--no-logging',
+        action='store_true',
+        help='Disable all logging to file. When enabled, no log file will be created or written to.'
+    )
+
     args = parser.parse_args()
 
-    app = OVPNMenuBarApp("OVPN IP", log_file=args.log_file)
+    app = OVPNMenuBarApp("OVPN IP", log_file=args.log_file, logging_enabled=not args.no_logging)
 
     # Start VPN in a separate thread
     vpn_thread = threading.Thread(target=app.run_openvpn, args=(args.ovpn_file,))
