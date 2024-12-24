@@ -79,6 +79,23 @@ class OVPNMenuBarApp(rumps.App):
         Returns:
             str: The assigned IP address, or None if not found.
         """
+        # First verify the file exists and is readable
+        try:
+            with open(ovpn_file, 'r') as f:
+                config_content = f.read()
+
+            # Basic validation of OpenVPN config file
+            if not any(keyword in config_content for keyword in ['remote ', 'dev ', 'proto ']):
+                self._log("Error: Invalid OpenVPN configuration file - missing required parameters", source="APP")
+                print("Error: Invalid OpenVPN configuration file")
+                rumps.quit_application()
+                return None
+
+        except (IOError, PermissionError) as e:
+            self._log(f"Error reading OpenVPN config file: {str(e)}", source="APP")
+            print(f"Error: Could not read OpenVPN config file - {str(e)}")
+            rumps.quit_application()
+            return None
 
         # Command to run OpenVPN
         cmd = ['sudo', 'openvpn', ovpn_file]
@@ -86,57 +103,92 @@ class OVPNMenuBarApp(rumps.App):
         # Print the banner
         self.print_banner()
 
-        # Start the process
-        self.vpn_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-
-        ip_address = None
-
-        # Important OVPN events to log
-        important_events = [
-            'CONNECTED',
-            'DISCONNECT',
-            'AUTH_FAILED',
-            'TLS_ERROR',
-            'PUSH_REPLY',
-            'Initialization Sequence Completed',
-            'ERROR:',
-            'FATAL:',
-            'TCP connection established',
-            'Peer Connection Initiated',
-            'Connection reset'
-        ]
-
         try:
-            # Read the output line by line
+            # Start the process with a timeout
+            self.vpn_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+            # Add a timer to check if we're getting any output
+            start_time = datetime.datetime.now()
+            no_output_timeout = 10  # seconds
+            last_output_time = start_time
+
+            ip_address = None
+
+            # Important OVPN events to log
+            important_events = [
+                'CONNECTED',
+                'DISCONNECT',
+                'AUTH_FAILED',
+                'TLS_ERROR',
+                'PUSH_REPLY',
+                'Initialization Sequence Completed',
+                'ERROR:',
+                'FATAL:',
+                'TCP connection established',
+                'Peer Connection Initiated',
+                'Connection reset'
+            ]
+
             while True:
-                line = self.vpn_process.stdout.readline()
-                if not line:
-                    break
+                # Use readline with timeout using select
+                import select
+                reads = [self.vpn_process.stdout.fileno()]
+                timeout = 1.0  # Check every second
 
-                # Print the log line immediately
-                print(line, end='')
-                sys.stdout.flush()  # Ensure output is printed immediately
+                # Wait for output with timeout
+                if select.select(reads, [], [], timeout)[0]:
+                    line = self.vpn_process.stdout.readline()
+                    if not line:
+                        break
 
-                # Log important events
-                if any(event in line for event in important_events):
-                    self._log(line.strip(), source="OVPN")
+                    last_output_time = datetime.datetime.now()
 
-                # Look for the PUSH_REPLY line if we haven't found the IP yet
-                if not ip_address and 'PUSH_REPLY' in line:
-                    # Use regex to find the IP address in the ifconfig part
-                    match = re.search(r'ifconfig (\d+\.\d+\.\d+\.\d+)', line)
-                    if match:
-                        ip_address = match.group(1)
-                        self.update_title(ip_address)
-                        self._log(f"VPN IP Address assigned: {ip_address}", source="OVPN")
+                    # Print the log line immediately
+                    print(line, end='')
+                    sys.stdout.flush()
+
+                    # Log important events
+                    if any(event in line for event in important_events):
+                        self._log(line.strip(), source="OVPN")
+
+                    # Look for the PUSH_REPLY line if we haven't found the IP yet
+                    if not ip_address and 'PUSH_REPLY' in line:
+                        match = re.search(r'ifconfig (\d+\.\d+\.\d+\.\d+)', line)
+                        if match:
+                            ip_address = match.group(1)
+                            self.update_title(ip_address)
+                            self._log(f"VPN IP Address assigned: {ip_address}", source="OVPN")
+
+                # Check if we've been waiting too long without output
+                if (datetime.datetime.now() - last_output_time).total_seconds() > no_output_timeout:
+                    self._log("Error: OpenVPN process is not responding or config file might be corrupt", source="APP")
+                    print("Error: OpenVPN process is not responding or config file might be corrupt")
+                    self.vpn_process.kill()
+                    rumps.quit_application()
+                    return None
+
+                # Check if process has terminated
+                if self.vpn_process.poll() is not None:
+                    error_code = self.vpn_process.returncode
+                    self._log(f"OpenVPN process terminated with code {error_code}", source="APP")
+                    print(f"Error: OpenVPN process terminated unexpectedly with code {error_code}")
+                    rumps.quit_application()
+                    return None
 
             return ip_address
 
+        except Exception as e:
+            self._log(f"Error running OpenVPN: {str(e)}", source="APP")
+            print(f"Error: Failed to run OpenVPN - {str(e)}")
+            if self.vpn_process:
+                self.vpn_process.kill()
+            rumps.quit_application()
+            return None
+
         except KeyboardInterrupt:
-            """
-            Handle keyboard interrupt (Ctrl+C) to stop the OpenVPN process.
-            """
             self._log("Received keyboard interrupt", source="OVPN")
+            if self.vpn_process:
+                self.vpn_process.kill()
             rumps.quit_application()
             return None
 
