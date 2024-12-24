@@ -9,20 +9,22 @@ from time import sleep
 import rumps
 from pyperclip import copy
 
+
 class OVPNMenuBarApp(rumps.App):
     """
-   A menu bar application to run OpenVPN and display the assigned IP address.
+    A menu bar application to run OpenVPN and display the assigned IP address.
 
-   Features:
-   - Displays VPN IP in menu bar
-   - Logs operations to a file (default: /tmp/ovpn_debug.log)
-   - Supports custom log file path
+    Features:
+    - Displays VPN IP in menu bar
+    - Optional logging to file (disabled by default)
+    - Enable logging by specifying a log file path
 
-   Usage:
-       app = OVPNMenuBarApp("OVPN IP", log_file="/path/to/custom.log")
-   """
+    Usage:
+        app = OVPNMenuBarApp("OVPN IP")  # No logging
+        app = OVPNMenuBarApp("OVPN IP", log_file="/path/to/custom.log")  # With logging
+    """
 
-    def __init__(self, name, title=None, icon=None, template=None, menu=None, quit_button=None, log_file='/tmp/ovpn_debug.log', logging_enabled=True):
+    def __init__(self, name, title=None, icon=None, template=None, menu=None, quit_button=None, log_file=None):
         """
         Initialize the OVPNMenuBarApp with the given parameters.
         """
@@ -33,9 +35,7 @@ class OVPNMenuBarApp(rumps.App):
         ]
         self.vpn_process = None
         self.ip_address = None
-        self.logging_enabled = logging_enabled
-
-        # Only set up logging if enabled
+        self.logging_enabled = log_file is not None
         self.log_path = log_file
         self.log_file = None
 
@@ -265,6 +265,7 @@ class OVPNMenuBarApp(rumps.App):
         else:
             self._log("No IP address found to copy")
 
+
 if __name__ == "__main__":
     """
     Main entry point for the application. Parses command-line arguments and starts the OVPNMenuBarApp.
@@ -281,21 +282,20 @@ and disconnect when needed.
 Features:
 - Displays VPN IP address in the menu bar
 - Automatically detects and displays assigned IP address
-- Logs operations with timestamps (can be disabled)
+- Optional logging (enabled by specifying --log-file)
 - Gracefully handles VPN disconnection
 - Menu bar integration with disconnect option
 
 Note: This application requires sudo privileges to run OpenVPN correctly.
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,  # This preserves the formatting
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    sudo python main.py config.ovpn                      # Use default log location
-    sudo python main.py config.ovpn --log-file ~/vpn.log # Specify custom log file
-    sudo python main.py config.ovpn --no-logging         # Disable logging completely
+    sudo python main.py config.ovpn                   # Run without logging
+    sudo python main.py config.ovpn --log-file ~/vpn.log  # Enable logging to specified file
 
-Log files can be monitored in real-time using:
-    tail -f /tmp/ovpn_debug.log  (or your custom log path)
+When logging is enabled, logs can be monitored in real-time using:
+    tail -f <log-file-path>
 """)
 
     parser.add_argument(
@@ -305,19 +305,12 @@ Log files can be monitored in real-time using:
 
     parser.add_argument(
         '--log-file',
-        default='/tmp/ovpn_debug.log',
-        help='Path to the log file for debugging and monitoring (default: /tmp/ovpn_debug.log)'
-    )
-
-    parser.add_argument(
-        '--no-logging',
-        action='store_true',
-        help='Disable all logging to file. When enabled, no log file will be created or written to.'
+        help='Enable logging and write logs to the specified file path.'
     )
 
     args = parser.parse_args()
 
-    app = OVPNMenuBarApp("OVPN IP", log_file=args.log_file, logging_enabled=not args.no_logging)
+    app = OVPNMenuBarApp("OVPN IP", log_file=args.log_file)
 
     # Start VPN in a separate thread
     vpn_thread = threading.Thread(target=app.run_openvpn, args=(args.ovpn_file,))
