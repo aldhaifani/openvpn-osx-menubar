@@ -7,7 +7,7 @@ import threading
 from time import sleep
 
 import rumps
-
+from pyperclip import copy
 
 class OVPNMenuBarApp(rumps.App):
     """
@@ -28,6 +28,7 @@ class OVPNMenuBarApp(rumps.App):
         """
         super().__init__(name, title, icon, template, menu, quit_button=None)
         self.menu = [
+            rumps.MenuItem("Copy IP", callback=self.copy_ip),
             rumps.MenuItem("Disconnect", callback=self.quit_application)
         ]
         self.vpn_process = None
@@ -146,7 +147,8 @@ class OVPNMenuBarApp(rumps.App):
         Args:
             ip (str): The IP address to display in the menu bar.
         """
-        self.title = f"{ip}"
+        self.ip_address = ip
+        self.title = f"{self.ip_address}"
 
     def quit_application(self, _=None):
         """
@@ -197,6 +199,19 @@ class OVPNMenuBarApp(rumps.App):
         print(banner)
         sleep(2)
 
+    def copy_ip(self, _=None):
+        """
+        Copy the IP address to the clipboard and show confirmation.
+        """
+        if self.ip_address:
+            copy(self.ip_address)
+            # Add a visual confirmation
+            self.title = f"✓ {self.ip_address}"  # Show checkmark
+            self._log(f"IP address copied to clipboard: {self.ip_address}")
+            # Reset title after 1 second
+            threading.Timer(1.0, lambda: self.update_title(self.ip_address)).start()
+        else:
+            self._log("No IP address found to copy")
 
 if __name__ == "__main__":
     """
